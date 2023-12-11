@@ -4,55 +4,69 @@ import random
 import re
 
 class OTPSender:
-    def __init__(self, account_sid, auth_token, input_no):
+    def __init__(self, account_sid, auth_token, twilio_number):
         self.account_sid = account_sid
         self.auth_token = auth_token
-        self.input_no = input_no
-
-    def validate_mobile_no(self, mobile_no):
-        return len(mobile_no) == 10 and mobile_no.isdigit()
-
-    def validate_email(self, email):
-        validating_condition = r"^[\w\.-]+@[\w\.-]+\.\w+$"
-        return bool(re.search(validating_condition, email))
+        self.twilio_number = twilio_number
 
     def generate_otp(self):
-        return ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        digits = "0123456789"
+        return ''.join(random.choice(digits) for _ in range(6))
 
     def send_email(self, email, otp):
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login('rrapasheanil@gmail.com', 'wvuv amdu frzh lfbz')
-        message = 'Your 6 digit OTP is ' + str(otp)
+        server.login('rrapasheanil@gmail.com', 'wvuvamdufrzhlfbz')
+        message = f'Your 6 digit OTP is {otp}'
         server.sendmail('rrapasheanil@gmail.com', email, message)
         server.quit()
 
-    def send_otp_through_sms(self, mobile_no, otp):
+    def send_otp_over_mobile(self, mobile_no, otp):
         client = Client(self.account_sid, self.auth_token)
+        message_body = f'Your 6 digit OTP is {otp}'
         message = client.messages.create(
-            body="Your 6 digit OTP is " + otp,
-            from_=self.input_no,
-            to='+91' + str(mobile_no),
+            body=message_body,
+            from_=self.twilio_number,
+            to=f'+91{mobile_no}',
         )
         print(message.body)
 
+    def send_otp_to_mobile_user(self, mobile_user):
+        if mobile_user.validate_mobile_no():
+            self.send_otp_over_mobile(mobile_user.mobile_no, self.generate_otp())
+        else:
+            print("Invalid Mobile number")
+
+    def send_otp_to_email_user(self, email_user):
+        if email_user.validate_email():
+            self.send_email(email_user.email, self.generate_otp())
+        else:
+            print("Invalid Email")
+
+class MobileUser:
+    def __init__(self, mobile_no):
+        self.mobile_no = mobile_no
+
+    def validate_mobile_no(self):
+        return len(self.mobile_no) == 10 and self.mobile_no.isdigit()
+
+class EmailUser:
+    def __init__(self, email):
+        self.email = email
+
+    def validate_email(self):
+        validation_condition = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+        return bool(re.search(validation_condition, self.email))
+
 if __name__ == "__main__":
-    account_sid = 'ACe93ddab96de7a3735e8e026e74d878f1'
-    auth_token = 'fced3cd503fdd92c1b4ec774bb206020'
-    input_no = '+18506600452'
+    ACCOUNT_SID = "ACe93ddab96de7a3735e8e026e74d878f1"
+    AUTH_TOKEN = "fced3cd503fdd92c1b4ec774bb206020"
+    TWILIO_NUMBER = '+18506600452'
 
-    otp_sender = OTPSender(account_sid, auth_token, input_no)
+    OTP_SENDER = OTPSender(ACCOUNT_SID, AUTH_TOKEN, TWILIO_NUMBER)
 
-    otp = otp_sender.generate_otp()
+    MOBILE_USER = MobileUser(input("Enter the Mobile number:"))
+    EMAIL_USER = EmailUser(input("Enter the Email:"))
 
-    mobile_no = input("Enter the Mobile number:")
-    if otp_sender.validate_mobile_no(mobile_no):
-        otp_sender.send_otp_through_sms(mobile_no, otp)
-    else:
-        print("Invalid Mobile no")
-
-    email = input("Enter the Email:")
-    if otp_sender.validate_email(email):
-        otp_sender.send_email(email, otp)
-    else:
-        print("Invalid Email ")
+    OTP_SENDER.send_otp_to_mobile_user(MOBILE_USER)
+    OTP_SENDER.send_otp_to_email_user(EMAIL_USER)
