@@ -14,12 +14,16 @@ class OTPSender:
         return ''.join(random.choice(digits) for _ in range(6))
 
     def send_email(self, email, otp):
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login('rrapasheanil@gmail.com', 'wvuvamdufrzhlfbz')
+        server = self._setup_email_server()
         message = f'Your 6 digit OTP is {otp}'
         server.sendmail('rrapasheanil@gmail.com', email, message)
         server.quit()
+
+    def _setup_email_server(self):
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login('rrapasheanil@gmail.com', 'wvuvamdufrzhlfbz')
+        return server
 
     def send_otp_over_mobile(self, mobile_no, otp):
         client = Client(self.account_sid, self.auth_token)
@@ -31,32 +35,37 @@ class OTPSender:
         )
         print(message.body)
 
-    def send_otp_to_mobile_user(self, mobile_user):
-        if mobile_user.validate_mobile_no():
-            self.send_otp_over_mobile(mobile_user.mobile_no, self.generate_otp())
+    def send_otp(self, user):
+        if user.validate():
+            if isinstance(user, MobileUser):
+                self.send_otp_over_mobile(user.value, self.generate_otp())
+            elif isinstance(user, EmailUser):
+                self.send_email(user.value, self.generate_otp())
         else:
-            print("Invalid Mobile number")
+            print(f"Invalid {user.type}.")
 
-    def send_otp_to_email_user(self, email_user):
-        if email_user.validate_email():
-            self.send_email(email_user.email, self.generate_otp())
-        else:
-            print("Invalid Email")
+class User:
+    def __init__(self, value, type):
+        self.value = value
+        self.type = type
 
-class MobileUser:
+    def validate(self):
+        raise NotImplementedError("Subclasses must implement the validate method.")
+
+class MobileUser(User):
     def __init__(self, mobile_no):
-        self.mobile_no = mobile_no
+        super().__init__(mobile_no, "Mobile number")
 
-    def validate_mobile_no(self):
-        return len(self.mobile_no) == 10 and self.mobile_no.isdigit()
+    def validate(self):
+        return len(self.value) == 10 and self.value.isdigit()
 
-class EmailUser:
+class EmailUser(User):
     def __init__(self, email):
-        self.email = email
+        super().__init__(email, "Email address")
 
-    def validate_email(self):
+    def validate(self):
         validation_condition = r"^[\w\.-]+@[\w\.-]+\.\w+$"
-        return bool(re.search(validation_condition, self.email))
+        return bool(re.search(validation_condition, self.value))
 
 if __name__ == "__main__":
     ACCOUNT_SID = "ACe93ddab96de7a3735e8e026e74d878f1"
@@ -68,5 +77,5 @@ if __name__ == "__main__":
     MOBILE_USER = MobileUser(input("Enter the Mobile number:"))
     EMAIL_USER = EmailUser(input("Enter the Email:"))
 
-    OTP_SENDER.send_otp_to_mobile_user(MOBILE_USER)
-    OTP_SENDER.send_otp_to_email_user(EMAIL_USER)
+    OTP_SENDER.send_otp(MOBILE_USER)
+    OTP_SENDER.send_otp(EMAIL_USER)
